@@ -3,7 +3,6 @@ name: Deploy static mirror to GitHub Pages
 on:
   push:
     branches:
-      - claude/heatica-static-mirror-l102gp
       - main
   workflow_dispatch:
 
