@@ -1495,5 +1495,52 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <li id="a11y-new-window-message">Opens in a new window.</li>
 </ul>
 
+<script id="mirror-variant-data" type="application/json">{"variants": [{"opts": ["Black", "Temperate"], "price": 1560000, "media": 33043927171396}, {"opts": ["Black", "Cold"], "price": 1560000, "media": 33043927171396}, {"opts": ["White", "Temperate"], "price": 1560000, "media": null, "img": "../cdn/files/variant-33043927007556.jpg", "alt": "White / Temperate"}, {"opts": ["White", "Cold"], "price": 1560000, "media": null, "img": "../cdn/files/variant-33043927007556.jpg", "alt": "White / Cold"}, {"opts": ["Grey", "Temperate"], "price": 1560000, "media": null, "img": "../cdn/files/variant-33043927105860.jpg", "alt": "Grey / Temperate"}, {"opts": ["Grey", "Cold"], "price": 1560000, "media": null, "img": "../cdn/files/variant-33043927105860.jpg", "alt": "Grey / Cold"}, {"opts": ["Matte Black", "Temperate"], "price": 1560000, "media": null}, {"opts": ["Matte Black", "Cold"], "price": 1560000, "media": null}], "fmt": {"pre": "€", "suf": " EUR", "ds": ".", "th": ",", "dec": 2}}</script>
+<script data-mirror-variants>
+(function(){
+  var d=document.getElementById('mirror-variant-data');if(!d)return;
+  var cfg=JSON.parse(d.textContent);
+  var vs=document.querySelector('variant-selects');if(!vs)return;
+  var injected=null;
+  function fmt(c){
+    var n=(c/100).toFixed(cfg.fmt.dec),p=n.split('.');
+    var ip=p[0].replace(/\B(?=(\d{3})+(?!\d))/g,cfg.fmt.th);
+    return cfg.fmt.pre+ip+(cfg.fmt.dec>0?cfg.fmt.ds+p[1]:'')+cfg.fmt.suf;
+  }
+  vs.addEventListener('change',function(){
+    var sel=[];
+    vs.querySelectorAll('fieldset').forEach(function(fs){
+      var c=fs.querySelector('input:checked');if(c)sel.push(c.value.trim());
+    });
+    var v=null;
+    for(var i=0;i<cfg.variants.length;i++){
+      var x=cfg.variants[i];
+      if(x.opts.length===sel.length&&x.opts.every(function(o,j){return o===sel[j];})){v=x;break;}
+    }
+    if(!v)return;
+    var pb=document.getElementById('price-'+vs.dataset.section);
+    if(pb)pb.querySelectorAll('.money').forEach(function(m){m.textContent=fmt(v.price);});
+    if(injected){injected.remove();injected=null;}
+    if(v.media){
+      var s=document.querySelector('[data-media-id$="-'+v.media+'"]');
+      if(s&&s.parentElement&&s.parentElement.firstElementChild!==s){
+        s.parentElement.insertBefore(s,s.parentElement.firstElementChild);
+      }
+    }else if(v.img){
+      var list=document.querySelector('media-gallery ul,.product__media-list');
+      if(list&&list.firstElementChild){
+        var c=list.firstElementChild.cloneNode(true);
+        c.removeAttribute('id');c.removeAttribute('data-media-id');
+        c.querySelectorAll('[id]').forEach(function(e){e.removeAttribute('id');});
+        c.querySelectorAll('[data-media-id]').forEach(function(e){e.removeAttribute('data-media-id');});
+        var im=c.querySelector('img');
+        if(im){im.src=v.img;im.removeAttribute('srcset');im.alt=v.alt||'';}
+        list.insertBefore(c,list.firstElementChild);
+        injected=c;
+      }
+    }
+  });
+})();
+</script>
 </body>
 </html>
