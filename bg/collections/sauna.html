@@ -1414,7 +1414,7 @@ html
 <li id="a11y-refresh-page-message">Изборът на опция води до пълно презареждане на страницата.</li>
 <li id="a11y-new-window-message">Отваря се в нов прозорец.</li>
 </ul>
-<script id="mirror-locale-cfg" type="application/json">{"cur": "bg", "sub": "collections/sauna.html", "root": "../../", "prefixes": ["", "pl", "uk", "cs", "sk", "hu", "bg", "en-at", "uk-at", "en-fr", "uk-fr", "en-nl", "uk-nl", "en-it", "uk-it", "pl-pl", "en-pl", "uk-pl", "en-dk", "uk-dk"]}</script>
+<script id="mirror-locale-cfg" type="application/json">{"cur": "bg", "sub": "collections/sauna.html", "root": "../../", "prefixes": ["", "pl", "uk", "cs", "sk", "hu", "bg", "en-at", "uk-at", "en-fr", "uk-fr", "en-nl", "uk-nl", "en-it", "uk-it", "pl-pl", "en-pl", "uk-pl", "en-dk", "uk-dk", "en-bg", "uk-bg", "bg-bg", "en-hr", "uk-hr", "en-hu", "uk-hu", "hu-hu", "en-ie", "uk-ie", "en-lt", "uk-lt", "en-si", "uk-si", "en-sk", "uk-sk", "sk-sk"]}</script>
 <script data-mirror-locale="">
 (function(){
   var d=document.getElementById('mirror-locale-cfg');if(!d)return;
@@ -1434,7 +1434,7 @@ html
     var v=a.getAttribute('data-value');
     var lang=cfg.cur?cfg.cur.split('-')[0]:'en';
     var cc=cfg.cur.indexOf('-')>-1?cfg.cur.split('-')[1]:'';
-    if(v==='en'||v==='pl'||v==='uk'){
+    if(['en','pl','uk','cs','sk','hu','bg'].indexOf(v)>-1){
       var c=cc?[v+'-'+cc]:[];
       c.push(v==='en'?'':v);c.push('');
       nav(pick(c));

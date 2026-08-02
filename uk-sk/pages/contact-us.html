@@ -1129,14 +1129,14 @@
     Зв'яжіться з нами
   </h1>
 <div class="rte scroll-trigger animate--slide-in">
-<h1><a data-mce-href="https://heatica.com/pages/installation" href="../../pages/installation.html" title="Drop Spa Installation">Drop spa installation</a> </h1>
-<h1><a data-mce-href="https://heatica.com/pages/maintenance" href="../../pages/maintenance.html" title="Drop Spa Maintenance"><span class="default-message undefined pageTitle undefined" data-mce-fragment="1">Drop spa maintenance</span></a></h1>
+<h1><a href="../../pages/installation.html" title="Drop Spa Installation">Drop spa installation</a> </h1>
+<h1><a href="../../pages/maintenance.html" title="Drop Spa Maintenance"><span class="default-message undefined pageTitle undefined" data-mce-fragment="1">Drop spa maintenance</span></a></h1>
 <h1><span class="default-message undefined pageTitle undefined" data-mce-fragment="1">Отримайте необхідну допомогу.</span></h1>
 <p><meta charset="utf-8"/> <span>Надайте нам кілька деталей, і ми запропонуємо найкраще рішення.</span><br/> <span>Спілкуйтеся по телефону, чату, електронною поштою тощо.</span></p>
 <p><br/> <span>Тел.: +48570909091</span></p>
 <p><span>електронна адреса: shop@heatica.com</span></p>
-<p><span>FB: <a data-mce-fragment="1" data-mce-href="https://www.facebook.com/heatica" href="https://www.facebook.com/heatica">https://www.facebook.com/heatica</a></span></p>
-<p><span>Instagram: <a data-mce-fragment="1" data-mce-href="https://www.instagram.com/heatica2020" href="https://www.instagram.com/heatica2020">https://www.instagram.com/heatica2020</a></span></p>
+<p><span>FB: <a data-mce-fragment="1" href="https://www.facebook.com/heatica">https://www.facebook.com/heatica</a></span></p>
+<p><span>Instagram: <a data-mce-fragment="1" href="https://www.instagram.com/heatica2020">https://www.instagram.com/heatica2020</a></span></p>
 </div>
 </div>
 </section><section class="mirror-section section" id="mirror-section-template--22785249640772__67ea5a4e-b9ef-4d86-9def-bda4aa48584f"><link href="../../cdn/shop/t/4/assets/section-multicolumn.css@v=81420361875458722681719411874.css" media="all" rel="stylesheet" type="text/css"/>
@@ -1247,7 +1247,7 @@
 <li id="a11y-refresh-page-message">Choosing a selection results in a full page refresh.</li>
 <li id="a11y-new-window-message">Opens in a new window.</li>
 </ul>
-<script id="mirror-locale-cfg" type="application/json">{"cur": "uk-sk", "sub": "pages/contact-us.html", "root": "../../", "prefixes": ["", "pl", "uk", "cs", "sk", "hu", "bg", "en-at", "uk-at", "en-fr", "uk-fr", "en-nl", "uk-nl", "en-it", "uk-it", "pl-pl", "en-pl", "uk-pl", "en-dk", "uk-dk"]}</script>
+<script id="mirror-locale-cfg" type="application/json">{"cur": "uk-sk", "sub": "pages/contact-us.html", "root": "../../", "prefixes": ["", "pl", "uk", "cs", "sk", "hu", "bg", "en-at", "uk-at", "en-fr", "uk-fr", "en-nl", "uk-nl", "en-it", "uk-it", "pl-pl", "en-pl", "uk-pl", "en-dk", "uk-dk", "en-bg", "uk-bg", "bg-bg", "en-hr", "uk-hr", "en-hu", "uk-hu", "hu-hu", "en-ie", "uk-ie", "en-lt", "uk-lt", "en-si", "uk-si", "en-sk", "uk-sk", "sk-sk"]}</script>
 <script data-mirror-locale="">
 (function(){
   var d=document.getElementById('mirror-locale-cfg');if(!d)return;
@@ -1267,7 +1267,7 @@
     var v=a.getAttribute('data-value');
     var lang=cfg.cur?cfg.cur.split('-')[0]:'en';
     var cc=cfg.cur.indexOf('-')>-1?cfg.cur.split('-')[1]:'';
-    if(v==='en'||v==='pl'||v==='uk'){
+    if(['en','pl','uk','cs','sk','hu','bg'].indexOf(v)>-1){
       var c=cc?[v+'-'+cc]:[];
       c.push(v==='en'?'':v);c.push('');
       nav(pick(c));
