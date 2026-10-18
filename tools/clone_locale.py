@@ -4,7 +4,7 @@ language locales into country variants (same page set, country selected)."""
 import json, re
 from pathlib import Path
 from bs4 import BeautifulSoup, NavigableString, Comment, Doctype, ProcessingInstruction
-from lib import ROOT, NBSP, PREFIXES, LANG_PREFIXES, LANG_NAMES, page_set, set_cfg, load_segments
+from lib import ROOT, NBSP, PREFIXES, LANG_PREFIXES, LANG_NAMES, page_set, set_cfg, load_segments, clean_url
 from strings import ui_tmap
 
 MONEY_RE = re.compile(r'(<span class="money">)€([\d,]+)\.(\d{2})( EUR</span>)')
@@ -59,6 +59,23 @@ def fix_links(soup, is_home, lang):
             bits = e.split(' ', 1); bits[0] = fix_path(bits[0], is_home, lang, tag.name)
             ents.append(' '.join(bits))
         tag['srcset'] = ', '.join(ents)
+
+def retarget_locale_links(soup, src, dst, is_home):
+    """language-locale page -> country variant: links that name the source locale
+    (its homepage or its directory) must name the variant instead."""
+    rx_dir = re.compile(rf'^((?:\.\./)*|\./)?{re.escape(src)}/(.*)$')
+    rx_home = re.compile(rf'^((?:\.\./)*|\./)?{re.escape(src)}(\.html)?([?#].*)?$')
+    for attr in ('href', 'src', 'action', 'data-src'):
+        for tag in soup.find_all(attrs={attr: True}):
+            v = tag[attr]
+            if not v or v.startswith(('http', '//', '#', 'mailto:', 'tel:', 'data:', 'javascript:', '/')):
+                continue
+            m = rx_dir.match(v)
+            if m:
+                tag[attr] = f"{m.group(1) or ''}{dst}/{m.group(2)}"; continue
+            m = rx_home.match(v)
+            if m:
+                tag[attr] = f"{m.group(1) or ''}{dst}{m.group(2) or ''}{m.group(3) or ''}"
 
 def select_lang(soup, lang, native, prev='en', prev_label='English'):
     for a in soup.select(f'a[data-value="{prev}"][hreflang]'):
@@ -167,16 +184,12 @@ def build_country(src_prefix, dst_prefix, cc, eu_format=None):
         soup = BeautifulSoup(src.read_text(encoding='utf-8'), 'html.parser')
         if src_prefix == '':
             fix_links(soup, is_home, dst_prefix)
-        elif is_home:
-            for attr in ('href', 'src'):
-                for tag in soup.find_all(attrs={attr: True}):
-                    v = tag[attr]
-                    if v.startswith('./'): v = v[2:]
-                    if v.startswith(f'{src_prefix}/'):
-                        tag[attr] = dst_prefix + v[len(src_prefix):]
-                    elif v == f'{src_prefix}.html':
-                        tag[attr] = f'{dst_prefix}.html'
+        else:
+            retarget_locale_links(soup, src_prefix, dst_prefix, is_home)
         select_country(soup, cc)
+        pg = soup.find('input', attrs={'name': 'page'})
+        if pg is not None:
+            pg['value'] = clean_url(dst_prefix, re.sub(r'\.html$', '', rel))
         out = str(soup)
         out = set_cfg(out, cur=dst_prefix, sub=rel, root='./' if is_home else '../../')
         if eu_format:

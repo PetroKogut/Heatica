@@ -64,9 +64,24 @@ def inject(page):
         return False
     old = json.loads(m.group(1))
     data = product_json(prefix, page.stem)
+    # radio values present on the page, per option position (proofreading may have changed spellings)
+    from bs4 import BeautifulSoup
+    soup = BeautifulSoup(html, 'html.parser')
+    page_values = [[(i.get('value') or '').strip() for i in fs.find_all('input')] for fs in soup.select('variant-selects fieldset')]
+    live_values = [[(x or '').strip() for x in o.get('values', [])] for o in data.get('options', [])]
+    def to_page(j, val):
+        val = val.strip()
+        if j < len(page_values) and val in page_values[j]:
+            return val
+        if j < len(live_values) and j < len(page_values) and val in live_values[j]:
+            k = live_values[j].index(val)
+            if k < len(page_values[j]) and len(live_values[j]) == len(page_values[j]):
+                return page_values[j][k]
+        norm = re.sub(r'Car(?:ittii|itii)\b', 'Cariitti', val)
+        return norm if j < len(page_values) and norm in page_values[j] else val
     variants = []
     for v in data['variants']:
-        opts = [o.strip() for o in (v.get('option1'), v.get('option2'), v.get('option3')) if o is not None]
+        opts = [to_page(j, o) for j, o in enumerate((v.get('option1'), v.get('option2'), v.get('option3'))) if o is not None]
         fm = v.get('featured_media') or {}
         media = fm.get('id')
         entry = {'id': v['id'], 'opts': opts, 'price': v['price'], 'media': media}

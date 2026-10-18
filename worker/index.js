@@ -28,12 +28,51 @@ const REDIRECTS = [
   [new RegExp(`^(/${LOCALE})?/policies/contact-information/?$`), (m) => `${m[1] || ''}/pages/contact-us`, 301],
   // product JSON endpoints
   [new RegExp(`^(/${LOCALE})?/products/([^/?#]+)\\.js(?:on)?$`), (m) => `${m[1] || ''}/products/${m[2]}`, 301],
+  // pages that exist in Shopify's sitemap but have no static equivalent
+  [new RegExp(`^(/${LOCALE})?/pages/cookie-declaration/?$`), (m) => `${m[1] || ''}/pages/cookie-policy`, 301],
+  [new RegExp(`^(/${LOCALE})?/products/krazek-p2500-d-34-mm-kwiatka-psa/?$`), (m) => `${m[1] || ''}/collections/accessories`, 301],
+  [new RegExp(`^(/${LOCALE})?/sitemap_[a-z_]+(?:_\\d+)?\\.xml$`), () => '/sitemap.xml', 301, false],
 ];
+
+const PREFIXES = ['', 'pl', 'uk', 'cs', 'sk', 'hu', 'bg', 'en-at', 'uk-at', 'en-fr', 'uk-fr', 'en-nl', 'uk-nl', 'en-it', 'uk-it',
+  'pl-pl', 'en-pl', 'uk-pl', 'en-dk', 'uk-dk', 'en-bg', 'uk-bg', 'bg-bg', 'en-hr', 'uk-hr', 'en-hu', 'uk-hu', 'hu-hu',
+  'en-ie', 'uk-ie', 'en-lt', 'uk-lt', 'en-si', 'uk-si', 'en-sk', 'uk-sk', 'sk-sk'];
+const LANGS = ['en', 'pl', 'uk', 'cs', 'sk', 'hu', 'bg'];
+
+const SAFE_PATH = /^\/[A-Za-z0-9\-._~\/]*$/;
+const SEC_HEADERS = {
+  'x-content-type-options': 'nosniff',
+  'x-frame-options': 'DENY',
+  'referrer-policy': 'strict-origin-when-cross-origin',
+  'cache-control': 'no-store',
+};
+
+/** no-JS fallback for the language/country picker forms (the page JS normally intercepts clicks). */
+async function handleLocalization(request, url) {
+  let form;
+  try { form = await request.formData(); } catch (e) { form = new FormData(); }
+  const ret = (form.get('return_to') || '/').toString();
+  const m = ret.match(new RegExp(`^/(${LOCALE})(?=/|$)`));
+  const cur = m ? m[1] : '';
+  const sub = ret.replace(new RegExp(`^/(${LOCALE})(?=/|$)`), '').replace(/^\//, '').replace(/\.html$/, '');
+  const lang = cur ? cur.split('-')[0] : 'en';
+  const cc = cur.includes('-') ? cur.split('-')[1] : '';
+  const pick = (c) => c.find((x) => PREFIXES.includes(x)) ?? '';
+  let p;
+  const lc = (form.get('locale_code') || '').toString().toLowerCase();
+  const country = (form.get('country_code') || '').toString().toLowerCase();
+  if (lc && LANGS.includes(lc)) p = pick([...(cc ? [`${lc}-${cc}`] : []), lc === 'en' ? '' : lc, '']);
+  else if (country) p = pick([`${lang}-${country}`, `en-${country}`, lang === 'en' ? '' : lang, '']);
+  else p = cur;
+  const dest = sub ? `/${p ? p + '/' : ''}${sub}` : `/${p}`;
+  return Response.redirect(`${url.origin}${dest}`, 303);
+}
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+
 function json(body, status = 200) {
-  return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } });
+  return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json; charset=utf-8', ...SEC_HEADERS } });
 }
 
 async function handleContact(request, env, url) {
@@ -41,25 +80,32 @@ async function handleContact(request, env, url) {
   try { form = await request.formData(); } catch (e) { return json({ ok: false, error: 'bad_request' }, 400); }
   const f = (k) => (form.get(k) || '').toString().trim();
   const wantsJson = (request.headers.get('accept') || '').includes('application/json');
-  const page = f('page').startsWith('/') ? f('page') : '/pages/contact-us';
-  const done = () => wantsJson ? json({ ok: true }) : Response.redirect(`${url.origin}${page}?contact_posted=true#ContactForm`, 303);
+  const page = SAFE_PATH.test(f('page')) && !f('page').startsWith('//') ? f('page') : '/pages/contact-us';
+  const back = (q) => Response.redirect(`${url.origin}${page}?${q}#ContactForm`, 303);
+  const done = () => wantsJson ? json({ ok: true }) : back('contact_posted=true');
+  const fail = (error, status) => wantsJson ? json({ ok: false, error }, status) : back(`contact_error=${error}`);
 
   if (f('website')) return done();                       // honeypot: pretend success
-  const name = f('contact[Name]'), email = f('contact[email]'), phone = f('contact[Phone number]'), comment = f('contact[Comment]');
-  if (!email || !EMAIL_RE.test(email) || (!comment && !name)) return json({ ok: false, error: 'invalid' }, 422);
-  if (comment.length > 5000) return json({ ok: false, error: 'too_long' }, 422);
+  const clean = (s) => s.replace(/[\r\n]+/g, ' ').trim();
+  const name = clean(f('contact[Name]')), email = clean(f('contact[email]')), phone = clean(f('contact[Phone number]')), comment = f('contact[Comment]');
+  if (!email || !EMAIL_RE.test(email) || email.length > 254 || (!comment && !name)) return fail('invalid', 422);
+  if (comment.length > 5000 || name.length > 200) return fail('too_long', 422);
 
-  if (!env.RESEND_API_KEY) return json({ ok: false, error: 'not_configured' }, 503);
+  if (!env.RESEND_API_KEY) return fail('not_configured', 503);
 
   const to = (env.CONTACT_TO || 'shop@heatica.com').split(',').map((s) => s.trim());
-  const subject = `[heatica.com] ${(comment.split('\n')[0] || 'Contact form').slice(0, 90)}`;
-  const text = [`Name: ${name}`, `E-mail: ${email}`, `Phone: ${phone}`, `Language: ${f('lang')}`, `Page: ${page}`, '', comment].join('\n');
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, 'content-type': 'application/json' },
-    body: JSON.stringify({ from: env.CONTACT_FROM || 'Heatica Website <onboarding@resend.dev>', to, reply_to: email, subject, text }),
-  });
-  if (!res.ok) return json({ ok: false, error: 'send_failed', status: res.status }, 502);
+  const subject = `[heatica.com] ${(comment.split(/\r?\n/)[0].trim() || 'Contact form').slice(0, 90)}`;
+  const text = [`Name: ${name}`, `E-mail: ${email}`, `Phone: ${phone}`, `Language: ${clean(f('lang'))}`, `Page: ${page}`, '', comment].join('\n');
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ from: env.CONTACT_FROM || 'Heatica Website <onboarding@resend.dev>', to, reply_to: email, subject, text }),
+    });
+    if (!res.ok) return fail('send_failed', 502);
+  } catch (e) {
+    return fail('send_failed', 502);
+  }
   return done();
 }
 
@@ -78,12 +124,16 @@ export default {
       if (request.method === 'POST') return handleContact(request, env, url);
       return Response.redirect(`${url.origin}${contact[1] || ''}/pages/contact-us`, 302);
     }
+    if (new RegExp(`^(/${LOCALE})?/localization/?$`).test(path)) {
+      if (request.method === 'POST') return handleLocalization(request, url);
+      return Response.redirect(`${url.origin}/`, 302);
+    }
 
-    for (const [re, target, status] of REDIRECTS) {
+    for (const [re, target, status, keepQuery = true] of REDIRECTS) {
       const m = re.exec(path);
       if (m) {
         const dest = target(m).replace(/\/{2,}/g, '/');
-        return Response.redirect(`${url.origin}${dest}${url.search}`, status);
+        return Response.redirect(`${url.origin}${dest}${keepQuery ? url.search : ''}`, status);
       }
     }
 

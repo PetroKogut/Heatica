@@ -45,34 +45,81 @@ def local_asset(url, want=1200):
     pick = ge[0] if ge else max(cands, key=lambda c: c[1])
     return f'{SITE}/cdn/shop/{dirname}/{pick[2]}'
 
-def rewrite_jsonld(obj, page_url):
+PAGE_URL_RE = re.compile(r'^https?://heatica\.com(?:/[a-z]{2}(?:-[a-z]{2})?)?(/(?:products|collections|pages)/[^/?#]+?)(?:\.html)?([?#].*)?$')
+
+def localize_url(v, page_url, own_path):
+    """a heatica.com page URL inside JSON-LD -> the same page in THIS locale (if it is this page)."""
+    m = PAGE_URL_RE.match(v)
+    if m and m.group(1) == own_path:
+        return page_url + (m.group(2) or '')
+    return re.sub(r'\.html(?=[?#]|$)', '', v)
+
+def rewrite_jsonld(obj, page_url, own_path=None):
     if isinstance(obj, dict):
         obj.pop('potentialAction', None)
+        if isinstance(obj.get('sameAs'), list):
+            obj['sameAs'] = [s for s in obj['sameAs'] if isinstance(s, str) and s.strip()]
+            if not obj['sameAs']: del obj['sameAs']
         for k, v in list(obj.items()):
             if isinstance(v, str):
                 if '/cdn/shop/' in v:
                     la = local_asset(v, 1946)
                     if la: obj[k] = la
-                elif v.startswith('https://heatica.com/') and k in ('url', '@id'):
-                    obj[k] = re.sub(r'\.html(?=[?#]|$)', '', v)
+                elif 'heatica.com' in v and k in ('url', '@id', 'sameAs', 'item'):
+                    obj[k] = localize_url(v, page_url, own_path)
             else:
-                rewrite_jsonld(v, page_url)
+                rewrite_jsonld(v, page_url, own_path)
     elif isinstance(obj, list):
         for i, v in enumerate(obj):
             if isinstance(v, str) and '/cdn/shop/' in v:
                 la = local_asset(v, 1946)
                 if la: obj[i] = la
+            elif isinstance(v, str) and 'heatica.com' in v:
+                obj[i] = localize_url(v, page_url, own_path)
             else:
-                rewrite_jsonld(v, page_url)
+                rewrite_jsonld(v, page_url, own_path)
     return obj
 
-def first_gallery_image(soup, page):
+def image_dims(url):
+    """(width, height) of a local asset URL, if Pillow is available."""
+    try:
+        from PIL import Image
+        rel = url.replace(SITE + '/', '')
+        with Image.open(ROOT / rel) as im:
+            return im.size
+    except Exception:
+        return None
+
+def first_gallery_image(soup, page, want=1200):
+    """absolute URL of the page's lead image, preferring the smallest rendition >= want px."""
     img = soup.select_one('.product__media img, .banner__media img, main img')
     if not img: return None
+    cands = []
+    for ent in (img.get('srcset') or '').split(','):
+        bits = ent.strip().split()
+        if len(bits) == 2 and bits[1].endswith('w') and bits[1][:-1].isdigit():
+            cands.append((int(bits[1][:-1]), bits[0]))
     src = img.get('src') or ''
-    if src.startswith(('http', '//')): return None
-    rel = (page.parent / src).resolve().relative_to(ROOT)
+    pick = None
+    if cands:
+        ge = sorted(c for c in cands if c[0] >= want)
+        pick = (ge[0] if ge else max(cands))[1]
+    else:
+        pick = src
+    if not pick or pick.startswith(('http', '//')): return None
+    try:
+        rel = (page.parent / unquote(pick)).resolve().relative_to(ROOT)
+    except ValueError:
+        return None
     return f'{SITE}/{rel.as_posix()}'
+
+_home_desc = {}
+def home_description(prefix):
+    if prefix not in _home_desc:
+        hp = page_file(prefix, '')
+        d = load(hp).find('meta', attrs={'name': 'description'}) if hp.exists() else None
+        _home_desc[prefix] = (d.get('content') or '').strip() if d else ''
+    return _home_desc[prefix]
 
 def process(page):
     prefix, sub = locale_of_page(page)
@@ -99,15 +146,39 @@ def process(page):
                 la = first_gallery_image(soup, page)
             if la:
                 m['content'] = la; og_img = la
+    if not og_img:
+        fg = first_gallery_image(soup, page)
+        if fg:
+            og_img = fg
+            head.append(soup.new_tag('meta', property='og:image', content=fg))
+            head.append(soup.new_tag('meta', property='og:image:secure_url', content=fg))
+    for m in head.find_all('meta', property=re.compile(r'^og:image:(width|height)$')):
+        m.decompose()
     if og_img:
-        for m in head.find_all('meta', property=re.compile(r'^og:image:(width|height)$')):
-            m.decompose()
+        dims = image_dims(og_img)
+        if dims:
+            head.append(soup.new_tag('meta', property='og:image:width', content=str(dims[0])))
+            head.append(soup.new_tag('meta', property='og:image:height', content=str(dims[1])))
+        if not head.find('meta', attrs={'name': 'twitter:image'}):
+            head.append(soup.new_tag('meta', attrs={'name': 'twitter:image', 'content': og_img}))
+    old_desc = head.find('meta', attrs={'name': 'description'})
+    if old_desc is not None and (old_desc.get('content') or '').startswith(('Collection:', 'Kolekcja:', 'Колекція:', 'Колекция:', 'Kolekce:', 'Kolekcia:', 'Gyűjtemény:')):
+        old_desc.decompose()          # placeholder generated from card text by an earlier build
+    if not head.find('meta', attrs={'name': 'description'}):
+        h1 = soup.select_one('main h1')
+        h1t = re.sub(r'\s+', ' ', h1.get_text(' ', strip=True)) if h1 else ''
+        h1t = re.sub(r'^[^:]{1,20}:\s*', '', h1t)            # drop the visually-hidden "Collection:" label
+        site_desc = home_description(prefix)
+        txt = f'{h1t} – {site_desc}' if h1t and site_desc else (h1t or site_desc)
+        if txt:
+            head.append(soup.new_tag('meta', attrs={'name': 'description', 'content': txt[:300]}))
+    own_path = clean_url('', sub)
     for sc in soup.find_all('script', type='application/ld+json'):
         try:
             data = json.loads(sc.string or '')
         except Exception:
             continue
-        sc.string = json.dumps(rewrite_jsonld(data, url), ensure_ascii=False)
+        sc.string = json.dumps(rewrite_jsonld(data, url, own_path), ensure_ascii=False)
     save(page, soup)
 
 def run():

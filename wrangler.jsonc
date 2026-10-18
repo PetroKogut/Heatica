@@ -6,6 +6,9 @@
   "name": "heatica-static",
   "main": "worker/index.js",
   "compatibility_date": "2026-07-01",
+  // Without this flag the assets layer answers browser navigations that miss an asset with the
+  // 404 page itself and never runs the Worker, which would kill every legacy redirect below.
+  "compatibility_flags": ["assets_navigation_has_no_effect"],
   "assets": {
     "directory": "./",
     "binding": "ASSETS",

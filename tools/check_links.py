@@ -30,7 +30,7 @@ def run():
         for raw in refs:
             u = H.unescape(raw).strip()
             if not u or u.startswith(('http', '//', '#', 'mailto:', 'tel:', 'data:', 'javascript:')): continue
-            if u in ('/contact',): continue
+            if u in ('/contact', '/localization'): continue
             if not resolve(p, u):
                 broken.setdefault(u[:100], set()).add(str(p.relative_to(ROOT)))
     print(f'links: {len(broken)} broken targets' + ('' if not broken else ':'))

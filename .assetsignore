@@ -1,5 +1,6 @@
 .git
 .github
+.gitignore
 node_modules
 tools
 worker
@@ -8,3 +9,11 @@ DEPLOY.md
 wrangler.jsonc
 package.json
 package-lock.json
+.wrangler
+.dev.vars
+.dev.vars.*
+.env
+.env.*
+.DS_Store
+__pycache__
+*.pyc

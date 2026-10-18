@@ -4,7 +4,7 @@ country locales are regenerated from them. Every step is idempotent."""
 import json, re, sys
 from urllib.parse import quote
 from bs4 import BeautifulSoup, NavigableString, Comment
-from lib import ROOT, DATA, all_pages, locale_of_page, lang_of, rel_root, load, save, clean_url
+from lib import ROOT, DATA, NBSP, all_pages, locale_of_page, lang_of, rel_root, load, save, clean_url
 from strings import s
 
 SOCIAL_HTML = (DATA / 'social.html').read_text(encoding='utf-8')
@@ -35,7 +35,7 @@ var ok=f.getAttribute('data-success'),fb=f.getAttribute('data-fallback'),to=f.ge
 function banner(text,good){var d=document.createElement('div');d.className='form__message mirror-form-message';d.setAttribute('role','status');d.setAttribute('tabindex','-1');
 d.style.cssText='margin:0 0 2rem;padding:1.2rem 1.6rem;border:0.1rem solid '+(good?'#1a7f37':'#b3261e')+';border-radius:0.4rem;font-size:1.5rem;line-height:1.5';d.textContent=text;f.parentNode.insertBefore(d,f);d.focus();return d;}
 var q=new URLSearchParams(location.search);
-if(q.get('contact_posted')==='true'){banner(ok,true);f.style.display='none';}
+if(q.get('contact_posted')==='true'){banner(ok,true);f.style.display='none';}else if(q.get('contact_error')){banner(fb,false);}
 var p=q.get('product');var c=f.querySelector('[name="contact[Comment]"]');
 if(p&&c&&!c.value){c.value=qt.replace('{product}',p)+'\n';var lbl=c.parentNode.querySelector('label');if(lbl){lbl.classList.add('field__label--filled');}}
 f.addEventListener('submit',function(e){e.preventDefault();
@@ -49,8 +49,13 @@ var body=encodeURIComponent('Name: '+(fd.get('contact[Name]')||'')+'\nEmail: '+(
 window.location.href='mailto:'+to+'?subject='+subj+'&body='+body;});});})();"""
 
 def locale_dir_href(page, prefix, sub):
-    """relative href from `page` to `sub` (e.g. 'pages/contact-us.html') of the same locale."""
-    return rel_root(page) + (prefix + '/' if prefix else '') + sub
+    """relative href from `page` to `sub` (e.g. 'pages/contact-us.html') of the SAME locale,
+    expressed locale-internally so that cloned country variants keep pointing inside themselves."""
+    _, page_sub = locale_of_page(page)
+    if not page_sub:                       # locale homepage sits at the repo root
+        return (prefix + '/' if prefix else '') + sub
+    depth = len(page_sub.split('/')) - 1
+    return '../' * depth + sub
 
 def strip_theme_scripts(soup):
     n = 0
@@ -82,6 +87,8 @@ def remove_atom(soup):
 def fix_currency_labels(soup):
     n = 0
     for form in soup.find_all('localization-form'):
+        for f in form.find_all('form'):
+            f['action'] = '/localization'   # no-JS fallback handled by the Worker
         for node in form.find_all(string=re.compile(r'PLN')):
             if isinstance(node, Comment): continue
             node.replace_with(str(node).replace('PLN zł', 'EUR €').replace('PLN', 'EUR')); n += 1
@@ -245,10 +252,77 @@ def contact_page(soup, page, prefix, lang):
         node.replace_with(frag)
     return 1
 
+MONEY_SPACE_RE = re.compile(r'^€(\d{1,3}(?: \d{3})+),(\d{2}) EUR$')
+
+def strip_editor_attrs(soup):
+    n = 0
+    for el in soup.find_all(True):
+        for a in [a for a in el.attrs if a.startswith('data-mce-')]:
+            del el[a]; n += 1
+    return n
+
+def money_nbsp(soup, lang):
+    """non-English locales format 1 850,00 with a no-break space; fix pages where a plain space slipped in."""
+    if lang == 'en': return 0
+    n = 0
+    for m in soup.select('span.money'):
+        txt = m.get_text()
+        mm = MONEY_SPACE_RE.match(txt)
+        if mm:
+            m.string = f"€{mm.group(1).replace(' ', NBSP)},{mm.group(2)} EUR"; n += 1
+    d = soup.find('script', id='mirror-variant-data')
+    if d and d.string and '"th": " "' in d.string:
+        d.string = d.string.replace('"th": " "', f'"th": "{NBSP}"'); n += 1
+    return n
+
+def fix_head_prologue(soup):
+    """the theme emitted a <meta google-site-verification> before <head>; keep only the one inside <head>."""
+    n = 0
+    html = soup.html
+    if html is None: return 0
+    for child in list(html.children):
+        if getattr(child, 'name', None) == 'head': break
+        if getattr(child, 'name', None) == 'meta':
+            child.decompose(); n += 1
+    return n
+
+def localize_internal_links(soup, page, prefix):
+    """rich-text links that point at the English (root) version of a page which also
+    exists in this locale -> point at the locale's own copy."""
+    if not prefix: return 0
+    from urllib.parse import unquote
+    _, page_sub = locale_of_page(page)
+    depth = len(page_sub.split('/')) - 1 if page_sub else 0
+    main = soup.find('main') or soup
+    n = 0
+    for a in main.find_all('a', href=True):
+        href = a['href']
+        if href.startswith(('http', '//', '#', 'mailto:', 'tel:', 'data:', 'javascript:', '/')): continue
+        path, _, tail = href.partition('#')
+        path, _, query = path.partition('?')
+        if not path: continue
+        try:
+            rel = (page.parent / unquote(path)).resolve().relative_to(ROOT)
+        except ValueError:
+            continue
+        parts = rel.parts
+        if len(parts) != 2 or parts[0] not in ('products', 'collections', 'pages'): continue
+        sub = '/'.join(parts)
+        if not sub.endswith('.html'): sub += '.html'
+        if not (ROOT / prefix / sub).exists(): continue
+        new = ('../' * depth + sub) if page_sub else f'{prefix}/{sub}'
+        a['href'] = new + ('?' + query if query else '') + ('#' + tail if tail else '')
+        n += 1
+    return n
+
 def process(page, cards_cache):
     prefix, sub = locale_of_page(page); lang = lang_of(prefix)
     soup = load(page)
     stats = {}
+    stats['xlocale'] = localize_internal_links(soup, page, prefix)
+    stats['mce'] = strip_editor_attrs(soup)
+    stats['nbsp'] = money_nbsp(soup, lang)
+    stats['prologue'] = fix_head_prologue(soup)
     stats['scripts'] = strip_theme_scripts(soup)
     ensure_shim(soup, lang)
     stats['facets'] = remove_facets(soup)
