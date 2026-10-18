@@ -1,0 +1,62 @@
+"""UI strings added by the mirror (not present in the crawled theme), per language."""
+STRINGS = {
+    'legal_heading': {'en': 'Legal', 'pl': 'Informacje prawne', 'uk': 'Правова інформація', 'cs': 'Právní informace',
+                      'sk': 'Právne informácie', 'hu': 'Jogi információk', 'bg': 'Правна информация'},
+    'privacy-policy': {'en': 'Privacy Policy', 'pl': 'Polityka prywatności', 'uk': 'Політика конфіденційності',
+                       'cs': 'Zásady ochrany osobních údajů', 'sk': 'Zásady ochrany osobných údajov',
+                       'hu': 'Adatvédelmi szabályzat', 'bg': 'Политика за поверителност'},
+    'terms-of-service': {'en': 'Terms of Service', 'pl': 'Regulamin', 'uk': 'Умови надання послуг',
+                         'cs': 'Obchodní podmínky', 'sk': 'Obchodné podmienky',
+                         'hu': 'Általános szerződési feltételek', 'bg': 'Общи условия'},
+    'cookie-policy': {'en': 'Cookie Policy', 'pl': 'Polityka plików cookie', 'uk': 'Політика щодо cookie',
+                      'cs': 'Zásady používání souborů cookie', 'sk': 'Zásady používania súborov cookie',
+                      'hu': 'Cookie-szabályzat', 'bg': 'Политика за бисквитки'},
+    'acceptable-use-policy': {'en': 'Acceptable Use Policy', 'pl': 'Zasady dopuszczalnego użytkowania',
+                              'uk': 'Політика допустимого використання', 'cs': 'Zásady přijatelného užívání',
+                              'sk': 'Zásady prijateľného používania', 'hu': 'Elfogadható használat szabályzata',
+                              'bg': 'Политика за допустимо използване'},
+    'chemical-starter-kit': {'en': 'Chemical starter kit', 'pl': 'Zestaw startowy chemii', 'uk': 'Стартовий набір хімії',
+                             'cs': 'Startovací sada chemie', 'sk': 'Štartovacia sada chémie',
+                             'hu': 'Vegyszer kezdőkészlet', 'bg': 'Стартов комплект химикали'},
+    'quote_cta': {'en': 'Request a quote', 'pl': 'Zapytaj o cenę', 'uk': 'Запитати ціну', 'cs': 'Poptat cenu',
+                  'sk': 'Vyžiadať cenovú ponuku', 'hu': 'Árajánlatot kérek', 'bg': 'Запитване за цена'},
+    'quote_subject': {'en': 'Quote request: {product}', 'pl': 'Zapytanie o cenę: {product}', 'uk': 'Запит ціни: {product}',
+                      'cs': 'Poptávka: {product}', 'sk': 'Dopyt: {product}', 'hu': 'Árajánlatkérés: {product}',
+                      'bg': 'Запитване за цена: {product}'},
+    'related_heading': {'en': 'You may also like', 'pl': 'Może Ci się spodobać', 'uk': 'Вам також може сподобатися',
+                        'cs': 'Mohlo by se vám líbit', 'sk': 'Mohlo by sa vám páčiť', 'hu': 'Ez is tetszhet',
+                        'bg': 'Може също да харесате'},
+    'contact_success': {'en': "Thanks for contacting us. We'll get back to you as soon as possible.",
+                        'pl': 'Dziękujemy za kontakt. Odpowiemy tak szybko, jak to możliwe.',
+                        'uk': 'Дякуємо за звернення. Ми відповімо якнайшвидше.',
+                        'cs': 'Děkujeme za zprávu. Ozveme se vám co nejdříve.',
+                        'sk': 'Ďakujeme za správu. Ozveme sa vám čo najskôr.',
+                        'hu': 'Köszönjük megkeresését. Hamarosan válaszolunk.',
+                        'bg': 'Благодарим, че се свързахте с нас. Ще Ви отговорим възможно най-скоро.'},
+    'contact_fallback': {'en': 'The form could not be sent online, so your e-mail app will open with the message prefilled.',
+                         'pl': 'Nie udało się wysłać formularza online, dlatego otworzy się Twój program pocztowy z gotową wiadomością.',
+                         'uk': 'Не вдалося надіслати форму онлайн, тому відкриється ваш поштовий клієнт із готовим листом.',
+                         'cs': 'Formulář se nepodařilo odeslat online, proto se otevře váš e-mailový klient s předvyplněnou zprávou.',
+                         'sk': 'Formulár sa nepodarilo odoslať online, preto sa otvorí váš e-mailový klient s predvyplnenou správou.',
+                         'hu': 'Az űrlapot nem sikerült online elküldeni, ezért megnyílik a levelezőprogramja az előre kitöltött üzenettel.',
+                         'bg': 'Формулярът не можа да бъде изпратен онлайн, затова ще се отвори Вашата пощенска програма с попълнено съобщение.'},
+    'collection_massage_title': {'en': 'Spa with massage jets', 'pl': 'Spa z dyszami masującymi', 'uk': 'Спа з масажними форсунками',
+                                 'cs': 'Vířivky s masážními tryskami', 'sk': 'Vírivky s masážnymi tryskami',
+                                 'hu': 'Masszázsfúvókás jakuzzik', 'bg': 'Спа с масажни дюзи'},
+    'collection_massage_desc': {'en': 'Massage jets help to relax your muscles.', 'pl': 'Dysze masujące pomagają rozluźnić mięśnie.',
+                                'uk': 'Масажні форсунки допомагають розслабити м’язи.', 'cs': 'Masážní trysky pomáhají uvolnit svaly.',
+                                'sk': 'Masážne trysky pomáhajú uvoľniť svaly.', 'hu': 'A masszázsfúvókák segítenek ellazítani az izmokat.',
+                                'bg': 'Масажните дюзи помагат за отпускане на мускулите.'},
+    'nf_title': {'en': 'Page not found', 'pl': 'Nie znaleziono strony', 'uk': 'Сторінку не знайдено', 'cs': 'Stránka nenalezena',
+                 'sk': 'Stránka sa nenašla', 'hu': 'Az oldal nem található', 'bg': 'Страницата не е намерена'},
+    'nf_home': {'en': 'Go to homepage', 'pl': 'Przejdź na stronę główną', 'uk': 'На головну', 'cs': 'Na úvodní stránku',
+                'sk': 'Na úvodnú stránku', 'hu': 'Vissza a kezdőlapra', 'bg': 'Към началната страница'},
+}
+
+def s(key, lang):
+    d = STRINGS[key]
+    return d.get(lang, d['en'])
+
+def ui_tmap(lang):
+    """EN -> lang map for the strings above (used when cloning language locales)."""
+    return {d['en']: d[lang] for d in STRINGS.values() if lang in d and '{' not in d['en']}

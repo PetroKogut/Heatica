@@ -1,9 +1,37 @@
 {
-  "name": "heatica-mirror",
+  // Cloudflare Workers: static assets + a small Worker for the contact form and legacy redirects.
+  // Deploy:            npx wrangler deploy
+  // With custom domain: npx wrangler deploy --env production   (after DNS cut-over, see DEPLOY.md)
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "heatica-static",
+  "main": "worker/index.js",
   "compatibility_date": "2026-07-01",
   "assets": {
     "directory": "./",
+    "binding": "ASSETS",
     "html_handling": "auto-trailing-slash",
     "not_found_handling": "404-page"
+  },
+  "vars": {
+    "CONTACT_TO": "shop@heatica.com",
+    "CONTACT_FROM": "Heatica Website <onboarding@resend.dev>"
+  },
+  "observability": { "enabled": true },
+  "env": {
+    "production": {
+      "routes": [
+        { "pattern": "heatica.com", "custom_domain": true }
+      ],
+      "assets": {
+        "directory": "./",
+        "binding": "ASSETS",
+        "html_handling": "auto-trailing-slash",
+        "not_found_handling": "404-page"
+      },
+      "vars": {
+        "CONTACT_TO": "shop@heatica.com",
+        "CONTACT_FROM": "Heatica Website <noreply@heatica.com>"
+      }
+    }
   }
 }
