@@ -77,13 +77,16 @@ def headers():
   Content-Security-Policy: frame-ancestors 'none'
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: camera=(), microphone=(), geolocation=()
-  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  Strict-Transport-Security: max-age=31536000
 
 /cdn/*
   Cache-Control: public, max-age=31536000, immutable
 
 /sitemap.xml
   Cache-Control: public, max-age=3600
+
+https://:version.:subdomain.workers.dev/*
+  X-Robots-Tag: noindex
 ''', encoding='utf-8')
 
 def run(today=None):

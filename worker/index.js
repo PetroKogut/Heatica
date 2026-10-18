@@ -28,6 +28,8 @@ const REDIRECTS = [
   [new RegExp(`^(/${LOCALE})?/policies/contact-information/?$`), (m) => `${m[1] || ''}/pages/contact-us`, 301],
   // product JSON endpoints
   [new RegExp(`^(/${LOCALE})?/products/([^/?#]+)\\.js(?:on)?$`), (m) => `${m[1] || ''}/products/${m[2]}`, 301],
+  // Shopify listing/vendor/type pages -> the main collection
+  [new RegExp(`^(/${LOCALE})?/(?:products|collections|collections/vendors|collections/types)/?$`), (m) => `${m[1] || ''}/collections/drop-spa`, 301, false],
   // pages that exist in Shopify's sitemap but have no static equivalent
   [new RegExp(`^(/${LOCALE})?/pages/cookie-declaration/?$`), (m) => `${m[1] || ''}/pages/cookie-policy`, 301],
   [new RegExp(`^(/${LOCALE})?/products/krazek-p2500-d-34-mm-kwiatka-psa/?$`), (m) => `${m[1] || ''}/collections/accessories`, 301],
@@ -65,11 +67,15 @@ async function handleLocalization(request, url) {
   else if (country) p = pick([`${lang}-${country}`, `en-${country}`, lang === 'en' ? '' : lang, '']);
   else p = cur;
   const dest = sub ? `/${p ? p + '/' : ''}${sub}` : `/${p}`;
-  return Response.redirect(`${url.origin}${dest}`, 303);
+  return redirect(`${url.origin}${dest}`, 303);
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+
+function redirect(location, status) {
+  return new Response(null, { status, headers: { location, ...SEC_HEADERS } });
+}
 
 function json(body, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json; charset=utf-8', ...SEC_HEADERS } });
@@ -81,11 +87,17 @@ async function handleContact(request, env, url) {
   const f = (k) => (form.get(k) || '').toString().trim();
   const wantsJson = (request.headers.get('accept') || '').includes('application/json');
   const page = SAFE_PATH.test(f('page')) && !f('page').startsWith('//') ? f('page') : '/pages/contact-us';
-  const back = (q) => Response.redirect(`${url.origin}${page}?${q}#ContactForm`, 303);
+  const back = (q) => redirect(`${url.origin}${page}?${q}#ContactForm`, 303);
   const done = () => wantsJson ? json({ ok: true }) : back('contact_posted=true');
   const fail = (error, status) => wantsJson ? json({ ok: false, error }, status) : back(`contact_error=${error}`);
 
   if (f('website')) return done();                       // honeypot: pretend success
+  if (env.CONTACT_LIMITER) {                              // 5 submissions / minute / IP (Workers rate-limit binding)
+    try {
+      const { success } = await env.CONTACT_LIMITER.limit({ key: request.headers.get('cf-connecting-ip') || 'unknown' });
+      if (!success) return fail('rate_limited', 429);
+    } catch (e) { /* limiter unavailable: let the request through */ }
+  }
   const clean = (s) => s.replace(/[\r\n]+/g, ' ').trim();
   const name = clean(f('contact[Name]')), email = clean(f('contact[email]')), phone = clean(f('contact[Phone number]')), comment = f('contact[Comment]');
   if (!email || !EMAIL_RE.test(email) || email.length > 254 || (!comment && !name)) return fail('invalid', 422);
@@ -116,24 +128,24 @@ export default {
 
     if (url.hostname.startsWith('www.')) {
       url.hostname = url.hostname.slice(4);
-      return Response.redirect(url.toString(), 301);
+      return redirect(url.toString(), 301);
     }
 
     const contact = new RegExp(`^(/${LOCALE})?/contact/?$`).exec(path);
     if (contact) {
       if (request.method === 'POST') return handleContact(request, env, url);
-      return Response.redirect(`${url.origin}${contact[1] || ''}/pages/contact-us`, 302);
+      return redirect(`${url.origin}${contact[1] || ''}/pages/contact-us`, 302);
     }
     if (new RegExp(`^(/${LOCALE})?/localization/?$`).test(path)) {
       if (request.method === 'POST') return handleLocalization(request, url);
-      return Response.redirect(`${url.origin}/`, 302);
+      return redirect(`${url.origin}/`, 302);
     }
 
     for (const [re, target, status, keepQuery = true] of REDIRECTS) {
       const m = re.exec(path);
       if (m) {
         const dest = target(m).replace(/\/{2,}/g, '/');
-        return Response.redirect(`${url.origin}${dest}${keepQuery ? url.search : ''}`, status);
+        return redirect(`${url.origin}${dest}${keepQuery ? url.search : ''}`, status);
       }
     }
 

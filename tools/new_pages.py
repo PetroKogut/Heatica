@@ -3,7 +3,7 @@ import sys as _s, os as _o; _s.path.insert(0, _o.path.dirname(_o.path.abspath(__
 'spa with massage jets' collection) for the source locales from existing templates."""
 import json, re
 from bs4 import BeautifulSoup
-from lib import ROOT, DATA, page_file, load, save, load_segments
+from lib import ROOT, DATA, page_file, load, save, load_segments, set_cfg, clean_url
 from strings import s, ui_tmap
 from clone_locale import translate
 
@@ -32,7 +32,7 @@ def build_page(prefix, lang, key, tmap):
         if k in ('description', 'og:description', 'twitter:description'): m['content'] = desc
         if k in ('og:title', 'twitter:title'): m['content'] = title
     out = page_file(prefix, f'pages/{key}.html')
-    save(out, soup)
+    save(out, finalize(soup, prefix, f'pages/{key}'))
     return out
 
 def build_collection(prefix, lang):
@@ -64,8 +64,15 @@ def build_collection(prefix, lang):
         if k in ('description', 'og:description', 'twitter:description'): m['content'] = desc
         if k in ('og:title', 'twitter:title'): m['content'] = title
     out = page_file(prefix, 'collections/spa-with-massage-jets.html')
-    save(out, soup)
+    save(out, finalize(soup, prefix, 'collections/spa-with-massage-jets'))
     return out
+
+def finalize(soup, prefix, sub):
+    """a page built from a template must identify as itself (locale cfg, no-JS picker return_to)."""
+    own = clean_url(prefix, sub)
+    for rt in soup.find_all('input', attrs={'name': 'return_to'}):
+        rt['value'] = own
+    return set_cfg(str(soup), cur=prefix, sub=sub, root='../../' if prefix else '../')
 
 def run():
     for lang, prefix in SOURCES.items():

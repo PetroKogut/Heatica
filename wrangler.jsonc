@@ -1,13 +1,14 @@
 {
-  // Cloudflare Workers: static assets + a small Worker for the contact form and legacy redirects.
-  // Deploy:            npx wrangler deploy
-  // With custom domain: npx wrangler deploy --env production   (after DNS cut-over, see DEPLOY.md)
+  // Cloudflare Workers: static assets + a small Worker (contact form, legacy redirects).
+  //   deploy:   npx wrangler deploy          (Workers Builds runs this on every push to main)
+  //   domain:   attach heatica.com to this Worker in the dashboard at cut-over (DEPLOY.md §4);
+  //             no config change is needed, so there is only ever one Worker.
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "heatica-static",
   "main": "worker/index.js",
   "compatibility_date": "2026-07-01",
   // Without this flag the assets layer answers browser navigations that miss an asset with the
-  // 404 page itself and never runs the Worker, which would kill every legacy redirect below.
+  // 404 page itself and never runs the Worker, which would kill every legacy redirect.
   "compatibility_flags": ["assets_navigation_has_no_effect"],
   "assets": {
     "directory": "./",
@@ -17,24 +18,12 @@
   },
   "vars": {
     "CONTACT_TO": "shop@heatica.com",
-    "CONTACT_FROM": "Heatica Website <onboarding@resend.dev>"
+    // Resend only accepts this sender once heatica.com is verified in Resend (DEPLOY.md §3).
+    "CONTACT_FROM": "Heatica Website <noreply@heatica.com>"
   },
-  "observability": { "enabled": true },
-  "env": {
-    "production": {
-      "routes": [
-        { "pattern": "heatica.com", "custom_domain": true }
-      ],
-      "assets": {
-        "directory": "./",
-        "binding": "ASSETS",
-        "html_handling": "auto-trailing-slash",
-        "not_found_handling": "404-page"
-      },
-      "vars": {
-        "CONTACT_TO": "shop@heatica.com",
-        "CONTACT_FROM": "Heatica Website <noreply@heatica.com>"
-      }
-    }
-  }
+  // RESEND_API_KEY is a secret:  npx wrangler secret put RESEND_API_KEY
+  "ratelimits": [
+    { "name": "CONTACT_LIMITER", "namespace_id": "1001", "simple": { "limit": 5, "period": 60 } }
+  ],
+  "observability": { "enabled": true }
 }

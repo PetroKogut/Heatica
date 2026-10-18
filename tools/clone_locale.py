@@ -187,10 +187,17 @@ def build_country(src_prefix, dst_prefix, cc, eu_format=None):
         else:
             retarget_locale_links(soup, src_prefix, dst_prefix, is_home)
         select_country(soup, cc)
+        own = clean_url(dst_prefix, re.sub(r'\.html$', '', rel))
         pg = soup.find('input', attrs={'name': 'page'})
         if pg is not None:
-            pg['value'] = clean_url(dst_prefix, re.sub(r'\.html$', '', rel))
+            pg['value'] = own
+        for rt in soup.find_all('input', attrs={'name': 'return_to'}):
+            rt['value'] = own
         out = str(soup)
+        if src_prefix == '' and not is_home:
+            # the variant JSON carries relative photo paths; the clone sits one directory deeper
+            out = re.sub(r'(<script id="mirror-variant-data"[^>]*>)(.*?)(</script>)',
+                         lambda m: m.group(1) + m.group(2).replace('"img": "../cdn/', '"img": "../../cdn/') + m.group(3), out, flags=re.S)
         out = set_cfg(out, cur=dst_prefix, sub=rel, root='./' if is_home else '../../')
         if eu_format:
             out = eu_money(out); out = set_fmt_eu(out)

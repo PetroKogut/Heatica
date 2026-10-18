@@ -34,7 +34,8 @@ jobs:
         run: |
           mkdir -p /tmp/site
           rsync -a --exclude .git --exclude .github --exclude tools --exclude worker \
-            --exclude node_modules --exclude README.md --exclude DEPLOY.md --exclude wrangler.jsonc ./ /tmp/site/
+            --exclude node_modules --exclude README.md --exclude DEPLOY.md --exclude wrangler.jsonc \
+            --exclude '.*' --exclude _headers ./ /tmp/site/
 
       - name: Upload site artifact
         uses: actions/upload-pages-artifact@v3

@@ -4,7 +4,7 @@ country locales are regenerated from them. Every step is idempotent."""
 import json, re, sys
 from urllib.parse import quote
 from bs4 import BeautifulSoup, NavigableString, Comment
-from lib import ROOT, DATA, NBSP, all_pages, locale_of_page, lang_of, rel_root, load, save, clean_url
+from lib import ROOT, DATA, NBSP, all_pages, locale_of_page, lang_of, rel_root, load, save, clean_url, set_cfg
 from strings import s
 
 SOCIAL_HTML = (DATA / 'social.html').read_text(encoding='utf-8')
@@ -91,7 +91,7 @@ def fix_currency_labels(soup):
             f['action'] = '/localization'   # no-JS fallback handled by the Worker
         for node in form.find_all(string=re.compile(r'PLN')):
             if isinstance(node, Comment): continue
-            node.replace_with(str(node).replace('PLN zł', 'EUR €').replace('PLN', 'EUR')); n += 1
+            node.replace_with(re.sub(r'(PLN|EUR)(\s+)zł', r'EUR\2€', str(node)).replace('PLN', 'EUR')); n += 1
     return n
 
 def youtube_privacy(soup):
@@ -315,10 +315,38 @@ def localize_internal_links(soup, page, prefix):
         n += 1
     return n
 
+UK_SAUNA_INTRO = ('Сауна Drop — ідеальне доповнення як для літніх будиночків, так і для домашніх терас, як і інші культові '
+                  'продукти Drop. Ця сауна «під ключ» готова змінити ваш простір без зусиль. Усе, що потрібно, — електрик і '
+                  'рівний майданчик для встановлення.')
+
+def self_identity(soup, prefix, sub):
+    """every page names itself in the no-JS picker forms; locale cfg is enforced on serialization."""
+    own = clean_url(prefix, sub)
+    for rt in soup.find_all('input', attrs={'name': 'return_to'}):
+        rt['value'] = own
+    head = soup.head
+    if head is not None and not head.find('link', rel='apple-touch-icon'):
+        head.append(soup.new_tag('link', rel='apple-touch-icon', href='/apple-touch-icon.png'))
+
+def fix_untranslated_copy(soup, prefix, sub):
+    """collection copy that the live site left in English on the Ukrainian locale."""
+    if prefix != 'uk' or sub != 'collections/sauna.html': return 0
+    n = 0
+    hero = soup.select_one('.collection-hero__description')
+    if hero and 'Drop sauna is a perfect addition' in hero.get_text():
+        hero.clear(); p = soup.new_tag('p'); p.string = UK_SAUNA_INTRO; hero.append(p); n += 1
+    for m in soup.find_all('meta'):
+        k = (m.get('name') or m.get('property') or '')
+        if k in ('description', 'og:description', 'twitter:description') and 'Drop sauna is a perfect addition' in (m.get('content') or ''):
+            m['content'] = UK_SAUNA_INTRO; n += 1
+    return n
+
 def process(page, cards_cache):
     prefix, sub = locale_of_page(page); lang = lang_of(prefix)
     soup = load(page)
     stats = {}
+    stats['copy'] = fix_untranslated_copy(soup, prefix, sub)
+    self_identity(soup, prefix, sub)
     stats['xlocale'] = localize_internal_links(soup, page, prefix)
     stats['mce'] = strip_editor_attrs(soup)
     stats['nbsp'] = money_nbsp(soup, lang)
@@ -339,7 +367,8 @@ def process(page, cards_cache):
         stats['related'] = related_products(soup, page, prefix, lang, *cards_cache[prefix])
     if sub == 'pages/contact-us.html':
         stats['contact'] = contact_page(soup, page, prefix, lang)
-    save(page, soup)
+    out = set_cfg(str(soup), cur=prefix, sub=re.sub(r'\.html$', '', sub), root=rel_root(page))
+    save(page, out)
     return stats
 
 def run(prefixes):

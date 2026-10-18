@@ -90,6 +90,18 @@ def image_dims(url):
     except Exception:
         return None
 
+def usable_local_image(url):
+    """the URL itself when it is a local asset big enough for a social preview."""
+    if not url.startswith(SITE + '/'):
+        return None
+    rel = unquote(url[len(SITE) + 1:]).split('?')[0]
+    if not (ROOT / rel).is_file():
+        return None
+    dims = image_dims(f'{SITE}/{rel}')
+    if not dims or dims[0] < 600 or dims[1] < 315:
+        return None
+    return f'{SITE}/{rel}'
+
 def first_gallery_image(soup, page, want=1200):
     """absolute URL of the page's lead image, preferring the smallest rendition >= want px."""
     img = soup.select_one('.product__media img, .banner__media img, main img')
@@ -111,7 +123,17 @@ def first_gallery_image(soup, page, want=1200):
         rel = (page.parent / unquote(pick)).resolve().relative_to(ROOT)
     except ValueError:
         return None
+    dims = image_dims(f'{SITE}/{rel.as_posix()}')
+    if dims and (dims[0] < 600 or dims[1] < 315):
+        return None                       # tiny inline graphics are useless as social previews
     return f'{SITE}/{rel.as_posix()}'
+
+_site_default = {}
+def site_default_image():
+    if 'v' not in _site_default:
+        home = load(ROOT / 'index.html')
+        _site_default['v'] = first_gallery_image(home, ROOT / 'index.html')
+    return _site_default['v']
 
 _home_desc = {}
 def home_description(prefix):
@@ -141,13 +163,16 @@ def process(page):
         if k == 'og:url':
             m['content'] = url
         elif k in ('og:image', 'og:image:secure_url', 'twitter:image'):
-            la = local_asset(m.get('content', '')) if '/cdn/shop/' in m.get('content', '') else None
-            if la is None and m.get('content', '').startswith(('http://', 'https://')) and 'heatica.com' in m['content']:
-                la = first_gallery_image(soup, page)
+            c = m.get('content', '')
+            la = local_asset(c) if '/cdn/shop/' in c else None
+            if la is None and c.startswith(('http://', 'https://')) and 'heatica.com' in c:
+                la = usable_local_image(c) or first_gallery_image(soup, page)
             if la:
                 m['content'] = la; og_img = la
+            else:
+                m.decompose()            # tiny/unknown image: the site default is appended below
     if not og_img:
-        fg = first_gallery_image(soup, page)
+        fg = first_gallery_image(soup, page) or site_default_image()
         if fg:
             og_img = fg
             head.append(soup.new_tag('meta', property='og:image', content=fg))
@@ -161,8 +186,12 @@ def process(page):
             head.append(soup.new_tag('meta', property='og:image:height', content=str(dims[1])))
         if not head.find('meta', attrs={'name': 'twitter:image'}):
             head.append(soup.new_tag('meta', attrs={'name': 'twitter:image', 'content': og_img}))
+    for m in head.find_all('meta'):
+        k = (m.get('name') or m.get('property') or '')
+        if k in ('description', 'og:description', 'twitter:description') and m.get('content'):
+            m['content'] = re.sub(r'\s+', ' ', m['content'].replace('&nbsp;', ' ').replace('\xa0', ' ')).strip()
     old_desc = head.find('meta', attrs={'name': 'description'})
-    if old_desc is not None and (old_desc.get('content') or '').startswith(('Collection:', 'Kolekcja:', 'Колекція:', 'Колекция:', 'Kolekce:', 'Kolekcia:', 'Gyűjtemény:')):
+    if old_desc is not None and re.match(r'^[^\s:]{3,15}:\s', old_desc.get('content') or '') and '€' in (old_desc.get('content') or ''):
         old_desc.decompose()          # placeholder generated from card text by an earlier build
     if not head.find('meta', attrs={'name': 'description'}):
         h1 = soup.select_one('main h1')
