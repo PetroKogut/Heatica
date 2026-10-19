@@ -54,7 +54,8 @@ const SEC_HEADERS = {
 async function handleLocalization(request, url) {
   let form;
   try { form = await request.formData(); } catch (e) { form = new FormData(); }
-  const ret = (form.get('return_to') || '/').toString();
+  const raw = (form.get('return_to') || '/').toString();
+  const ret = SAFE_PATH.test(raw) && !raw.startsWith('//') ? raw : '/';
   const m = ret.match(new RegExp(`^/(${LOCALE})(?=/|$)`));
   const cur = m ? m[1] : '';
   const sub = ret.replace(new RegExp(`^/(${LOCALE})(?=/|$)`), '').replace(/^\//, '').replace(/\.html$/, '');
@@ -84,6 +85,7 @@ function json(body, status = 200) {
 
 async function handleContact(request, env, url) {
   let form;
+  if (Number(request.headers.get('content-length') || 0) > 32768) return json({ ok: false, error: 'too_long' }, 413);
   try { form = await request.formData(); } catch (e) { return json({ ok: false, error: 'bad_request' }, 400); }
   const f = (k) => (form.get(k) || '').toString().trim();
   const wantsJson = (request.headers.get('accept') || '').includes('application/json');
@@ -100,9 +102,9 @@ async function handleContact(request, env, url) {
     } catch (e) { /* limiter unavailable: let the request through */ }
   }
   const clean = (s) => s.replace(/[\r\n]+/g, ' ').trim();
-  const name = clean(f('contact[Name]')), email = clean(f('contact[email]')), phone = clean(f('contact[Phone number]')), comment = f('contact[Comment]');
+  const name = clean(f('contact[Name]') || f('contact[Nazwa]')), email = clean(f('contact[email]')), phone = clean(f('contact[Phone number]') || f('contact[Numer telefonu]')), comment = f('contact[Comment]') || f('contact[Komentarz]');
   if (!email || !EMAIL_RE.test(email) || email.length > 254 || (!comment && !name)) return fail('invalid', 422);
-  if (comment.length > 5000 || name.length > 200) return fail('too_long', 422);
+  if (comment.length > 5000 || name.length > 200 || phone.length > 50 || f('lang').length > 10) return fail('too_long', 422);
 
   if (!env.RESEND_API_KEY) return fail('not_configured', 503);
 
@@ -150,6 +152,10 @@ export default {
       }
     }
 
-    return env.ASSETS.fetch(request);
+    const res = await env.ASSETS.fetch(request);
+    if (res.status !== 404) return res;
+    const nf = new Response(res.body, res);          // never let the /cdn/* immutable rule cache a miss
+    nf.headers.set('cache-control', 'no-store');
+    return nf;
   },
 };

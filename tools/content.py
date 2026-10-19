@@ -4,7 +4,7 @@ country locales are regenerated from them. Every step is idempotent."""
 import json, re, sys
 from urllib.parse import quote
 from bs4 import BeautifulSoup, NavigableString, Comment
-from lib import ROOT, DATA, NBSP, all_pages, locale_of_page, lang_of, rel_root, load, save, clean_url, set_cfg
+from lib import ROOT, DATA, NBSP, all_pages, locale_of_page, lang_of, rel_root, load, save, clean_url, set_cfg, COUNTRY_VARIANTS
 from strings import s
 
 SOCIAL_HTML = (DATA / 'social.html').read_text(encoding='utf-8')
@@ -92,6 +92,18 @@ def fix_currency_labels(soup):
         for node in form.find_all(string=re.compile(r'PLN')):
             if isinstance(node, Comment): continue
             node.replace_with(re.sub(r'(PLN|EUR)(\s+)zł', r'EUR\2€', str(node)).replace('PLN', 'EUR')); n += 1
+    return n
+
+SERVED_COUNTRIES = {'PL'} | {v[1].upper() for v in COUNTRY_VARIANTS.values()}
+
+def trim_country_pickers(soup):
+    """only countries that have pages stay in the country pickers (Shopify listed 34 markets)."""
+    n = 0
+    for a in soup.select('localization-form a[data-value]'):
+        if a.get('hreflang') or a['data-value'].upper() in SERVED_COUNTRIES:
+            continue
+        li = a.parent if a.parent is not None and a.parent.name == 'li' else a
+        li.decompose(); n += 1
     return n
 
 DEFAULT_COUNTRY = 'PL'   # the shop is in Krakow; the crawl's primary market was Germany
@@ -233,6 +245,13 @@ def contact_page(soup, page, prefix, lang):
     form['data-fallback'] = s('contact_fallback', lang)
     form['data-quote'] = s('quote_subject', lang)
     form['data-mailto'] = 'shop@heatica.com'
+    # Shopify translated the field *names* on some locales (contact[Nazwa] ...); the Worker and the
+    # inline script read the English names, so normalise them by element id.
+    for fid, nm in (('ContactForm-name', 'contact[Name]'), ('ContactForm-email', 'contact[email]'),
+                    ('ContactForm-phone', 'contact[Phone number]'), ('ContactForm-body', 'contact[Comment]')):
+        el = form.find(id=fid)
+        if el is not None:
+            el['name'] = nm
     for name, val in (('lang', lang), ('page', clean_url(prefix, locale_of_page(page)[1]))):
         inp = form.find('input', attrs={'name': name})
         if inp is None:
@@ -366,6 +385,7 @@ def process(page, cards_cache):
     stats['facets'] = remove_facets(soup)
     stats['atom'] = remove_atom(soup)
     stats['pln'] = fix_currency_labels(soup)
+    stats['countries'] = trim_country_pickers(soup)
     default_country(soup, lang)
     stats['yt'] = youtube_privacy(soup)
     stats['footer'] = footer_blocks(soup, page, prefix, lang)

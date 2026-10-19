@@ -14,6 +14,10 @@ python3 tools/build.py countries srcset metadata links site check
 node tools/worker_test.mjs          # Worker: redirects, no-JS pickers, contact form (no network)
 ```
 
+`tools/data/products/<handle>.json` is Shopify's product JSON captured while the
+store was online (prices, variants, featured image); `metadata` uses it for the
+product og:image and `variants` can fall back to it once Shopify is gone.
+
 | stage      | module             | what it does |
 |------------|--------------------|--------------|
 | content    | `content.py`       | footer legal links + social icons, "Request a quote" CTAs, static "You may also like", contact form (Worker endpoint, honeypot, mailto fallback, tel:/mailto: links), removal of Shopify-only theme scripts/facets/atom links, theme-global shim |

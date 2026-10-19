@@ -1,6 +1,6 @@
 // Worker behaviour test: node tools/worker_test.mjs   (no network, no Cloudflare account needed)
 import worker from '../worker/index.js';
-const env = { ASSETS: { fetch: async (req) => new Response('ASSET ' + new URL(req.url).pathname, { status: 200 }) } };
+const env = { ASSETS: { fetch: async (req) => new URL(req.url).pathname.includes('missing-') ? new Response('nf', { status: 404, headers: { 'cache-control': 'public, max-age=31536000, immutable' } }) : new Response('ASSET ' + new URL(req.url).pathname, { status: 200 }) } };
 const O = 'https://heatica.com';
 let fails = 0;
 const check = (ok, label, got) => { if (!ok) fails++; console.log((ok ? 'ok  ' : 'FAIL') + ' ' + label + ' -> ' + got); };
@@ -54,6 +54,9 @@ const picks = [
   ['/', { locale_code: 'cs' }, '303 /cs'],
   ['/en-pl/products/drop-x', { locale_code: 'uk' }, '303 /uk-pl/products/drop-x'],
   ['/en-at', { locale_code: 'cs' }, '303 /cs'],                 // no cs-at: language wins
+  ['/pl\nSet-Cookie: a=b', { country_code: 'AT' }, '303 /en-at'], // hostile return_to is dropped, the pick still applies
+  ['https://evil.example/x', { locale_code: 'cs' }, '303 /cs'],
+  ['//evil.example/x', { country_code: 'AT' }, '303 /en-at'],
 ];
 for (const [ret, fields, expect] of picks) {
   const got = await loc(ret, fields);
@@ -72,6 +75,21 @@ check(r.status === 303 && r.headers.get('location') === O + '/pages/contact-us?c
 const hp = new FormData(); hp.set('contact[email]', 'a@b.co'); hp.set('contact[Comment]', 'x'); hp.set('website', 'spam');
 r = await worker.fetch(new Request(O + '/contact', { method: 'POST', body: hp, headers: { accept: 'application/json' } }), env);
 check(r.status === 200, 'honeypot pretends success', String(r.status));
+
+// Polish field names (Shopify translated them) are accepted too
+const plf = new FormData(); plf.set('contact[Nazwa]', 'T'); plf.set('contact[email]', 'a@b.co'); plf.set('contact[Komentarz]', 'x'); plf.set('page', '/pl/pages/contact-us');
+r = await worker.fetch(new Request(O + '/pl/contact', { method: 'POST', body: plf, headers: { accept: 'application/json' } }), env);
+check(r.status === 503, 'contact with Polish field names reaches the send step', `${r.status} ${await r.text()}`);
+const longp = new FormData(); longp.set('contact[email]', 'a@b.co'); longp.set('contact[Comment]', 'x'); longp.set('contact[Phone number]', '1'.repeat(60));
+r = await worker.fetch(new Request(O + '/contact', { method: 'POST', body: longp, headers: { accept: 'application/json' } }), env);
+check(r.status === 422, 'oversized phone rejected', `${r.status} ${await r.text()}`);
+const big = new Request(O + '/contact', { method: 'POST', body: longp, headers: { accept: 'application/json', 'content-length': '40000' } });
+if (big.headers.get('content-length')) { r = await worker.fetch(big, env); check(r.status === 413, 'oversized body rejected', String(r.status)); }
+else console.log('skip oversized-body case (runtime drops content-length)');
+r = await worker.fetch(new Request(O + '/cdn/shop/files/missing-x.webp'), env);
+check(r.status === 404 && r.headers.get('cache-control') === 'no-store', 'asset miss is not cacheable', `${r.status} ${r.headers.get('cache-control')}`);
+r = await worker.fetch(new Request(O + '/cdn/shop/files/present.webp'), env);
+check(r.status === 200, 'asset hit passes through', String(r.status));
 
 console.log(fails ? `${fails} FAILURE(S)` : 'all cases pass');
 process.exit(fails ? 1 : 0);

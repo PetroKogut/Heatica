@@ -34,6 +34,11 @@ def local_asset(url, want=1200):
         return None
     dirname, name = m.group(1), unquote(m.group(2))
     q = parse_qs(u.query)
+    loc = re.match(r'^(?P<stem>.+?)\.(?:[a-z]+\d*\.)*?v(?P<v>\d+)(?:\.w(?P<w>\d+))?(?:\.[a-z]\w*)*\.(?P<ext>[A-Za-z0-9]+)$', name)
+    if loc:                                   # an already-localized name (name.v<ver>.w<width>.ext)
+        name = f"{loc.group('stem')}.{loc.group('ext')}"
+        q.setdefault('v', [loc.group('v')])
+        if loc.group('w'): q.setdefault('width', [loc.group('w')])
     v = (q.get('v') or [None])[0]
     want = int((q.get('width') or [want])[0])
     cands = _dir_index(dirname).get(name, [])
@@ -89,6 +94,23 @@ def image_dims(url):
             return im.size
     except Exception:
         return None
+
+def product_featured_image(sub):
+    """Shopify's featured image of a product page, from tools/data/products/<handle>.json."""
+    mm = re.match(r'^products/([^/.]+)', sub)
+    if not mm:
+        return None
+    p = ROOT / 'tools' / 'data' / 'products' / f'{mm.group(1)}.json'
+    if not p.exists():
+        return None
+    try:
+        import json
+        fi = json.loads(p.read_text(encoding='utf-8')).get('featured_image') or ''
+    except Exception:
+        return None
+    # product JSON names the Shopify CDN path (//cdn.shopify.com/s/files/1/.../files/<name>); map it to /cdn/shop/<dir>/<name>
+    fi = re.sub(r'^(?:https?:)?//cdn\.shopify\.com/s/files/(?:\d+/)+(files|products)/', f'{SITE}/cdn/shop/\\1/', fi)
+    return local_asset(fi) if fi else None
 
 def usable_local_image(url):
     """the URL itself when it is a local asset big enough for a social preview."""
@@ -158,11 +180,14 @@ def process(page):
     if page_file('', sub).exists():
         head.append(soup.new_tag('link', rel='alternate', hreflang='x-default', href=SITE + clean_url('', sub)))
     og_img = None
+    feat = product_featured_image(sub)
     for m in head.find_all('meta'):
         k = m.get('property') or m.get('name') or ''
         if k == 'og:url':
             m['content'] = url
         elif k in ('og:image', 'og:image:secure_url', 'twitter:image'):
+            if feat:
+                m['content'] = feat; og_img = feat; continue
             c = m.get('content', '')
             la = local_asset(c) if '/cdn/shop/' in c else None
             if la is None and c.startswith(('http://', 'https://')) and 'heatica.com' in c:
@@ -172,7 +197,7 @@ def process(page):
             else:
                 m.decompose()            # tiny/unknown image: the site default is appended below
     if not og_img:
-        fg = first_gallery_image(soup, page) or site_default_image()
+        fg = feat or first_gallery_image(soup, page) or site_default_image()
         if fg:
             og_img = fg
             head.append(soup.new_tag('meta', property='og:image', content=fg))
