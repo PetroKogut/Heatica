@@ -34,7 +34,7 @@ or newsletter — the site is a catalogue with a quote request.
 Edit a source locale page, then
 
 ```
-python3 tools/build.py countries metadata links site check
+python3 tools/build.py content pages countries metadata links site check
 ```
 
 and commit. Prices/variants can be refreshed from Shopify while it is still

@@ -58,6 +58,8 @@ the Worker answers 301/302):
 - `/sitemap_products_1.xml` → 301 to `/sitemap.xml`; `/favicon.ico`, `/apple-touch-icon.png` → 200
 - `/does-not-exist` → the branded 404 page, HTTP 404
 - a product page: pick a variant → price and photo change, URL gains `?variant=`; open that URL directly
+- `/cs` (and `/hu`, `/bg`): the header shows Polsko/Lengyelország/Полша; tapping that already-selected
+  country stays on the page, tapping Austria goes to `/en-at`, picking a language keeps the page
 - the contact page in two locales (see §3 for the two modes); the response headers on `/` include the `_headers` security headers
 - the workers.dev host sends `X-Robots-Tag: noindex` (the `_headers` rule), so the preview is never indexed
 

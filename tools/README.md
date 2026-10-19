@@ -3,13 +3,15 @@
 The site is a static mirror of the Shopify store heatica.com. It was
 crawled with `wget --mirror --page-requisites --convert-links` on
 2026-07-26, stripped of every commerce/Shopify dependency, translated into
-four extra languages and expanded with country variants. The one-off crawl
+four more languages (cs, sk, hu, bg) on top of the crawled en/pl/uk, and
+expanded with country variants. The one-off crawl
 post-processing scripts are not kept; everything that has to be
 re-runnable lives here.
 
 ```
 python3 tools/build.py              # all stages
 python3 tools/build.py countries srcset metadata links site check
+node tools/worker_test.mjs          # Worker: redirects, no-JS pickers, contact form (no network)
 ```
 
 | stage      | module             | what it does |

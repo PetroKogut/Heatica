@@ -93,6 +93,8 @@ def select_lang(soup, lang, native, prev='en', prev_label='English'):
         for btn in form.select('button.disclosure__button span'):
             if btn.get_text(strip=True) == prev_label:
                 btn.string = native
+    for inp in soup.select('localization-form input[name="locale_code"]'):
+        inp['value'] = lang
 
 def first_text(a):
     return next((s.strip() for s in a.find_all(string=True) if s.strip()), None)
@@ -126,6 +128,8 @@ def select_country(soup, cc, prev_cc=None):
                 txt = span.get_text()
                 if src_disp in txt:
                     span.string = txt.replace(src_disp, dst_disp)
+    for inp in soup.select('localization-form input[name="country_code"]'):
+        inp['value'] = cc
 
 def translate(soup, tmap):
     n = 0

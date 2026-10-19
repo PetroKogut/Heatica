@@ -40,6 +40,7 @@ const PREFIXES = ['', 'pl', 'uk', 'cs', 'sk', 'hu', 'bg', 'en-at', 'uk-at', 'en-
   'pl-pl', 'en-pl', 'uk-pl', 'en-dk', 'uk-dk', 'en-bg', 'uk-bg', 'bg-bg', 'en-hr', 'uk-hr', 'en-hu', 'uk-hu', 'hu-hu',
   'en-ie', 'uk-ie', 'en-lt', 'uk-lt', 'en-si', 'uk-si', 'en-sk', 'uk-sk', 'sk-sk'];
 const LANGS = ['en', 'pl', 'uk', 'cs', 'sk', 'hu', 'bg'];
+const DEFAULT_COUNTRY = 'pl';   // country presented by the source locales (tools/content.py DEFAULT_COUNTRY)
 
 const SAFE_PATH = /^\/[A-Za-z0-9\-._~\/]*$/;
 const SEC_HEADERS = {
@@ -64,7 +65,7 @@ async function handleLocalization(request, url) {
   const lc = (form.get('locale_code') || '').toString().toLowerCase();
   const country = (form.get('country_code') || '').toString().toLowerCase();
   if (lc && LANGS.includes(lc)) p = pick([...(cc ? [`${lc}-${cc}`] : []), lc === 'en' ? '' : lc, '']);
-  else if (country) p = pick([`${lang}-${country}`, `en-${country}`, lang === 'en' ? '' : lang, '']);
+  else if (country) p = country === (cc || DEFAULT_COUNTRY) ? cur : pick([`${lang}-${country}`, `en-${country}`, lang === 'en' ? '' : lang, '']);
   else p = cur;
   const dest = sub ? `/${p ? p + '/' : ''}${sub}` : `/${p}`;
   return redirect(`${url.origin}${dest}`, 303);

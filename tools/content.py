@@ -1,5 +1,5 @@
 import sys as _s, os as _o; _s.path.insert(0, _o.path.dirname(_o.path.abspath(__file__)))
-"""Content-level fixes applied to source locales (root EN, pl, uk); language and
+"""Content-level fixes applied to source locales (root EN, pl, uk, cs, sk, hu, bg); language and
 country locales are regenerated from them. Every step is idempotent."""
 import json, re, sys
 from urllib.parse import quote
@@ -96,10 +96,13 @@ def fix_currency_labels(soup):
 
 DEFAULT_COUNTRY = 'PL'   # the shop is in Krakow; the crawl's primary market was Germany
 
-def default_country(soup):
-    """source locales (no country in the URL) present Poland as the selected country."""
+def default_country(soup, lang):
+    """source locales (no country in the URL) present Poland as the selected country;
+    the hidden form inputs carry the current language/country for no-JS submissions."""
     from clone_locale import select_country
     select_country(soup, DEFAULT_COUNTRY)
+    for inp in soup.select('localization-form input[name="locale_code"]'):
+        inp['value'] = lang
 
 def youtube_privacy(soup):
     n = 0
@@ -363,7 +366,7 @@ def process(page, cards_cache):
     stats['facets'] = remove_facets(soup)
     stats['atom'] = remove_atom(soup)
     stats['pln'] = fix_currency_labels(soup)
-    default_country(soup)
+    default_country(soup, lang)
     stats['yt'] = youtube_privacy(soup)
     stats['footer'] = footer_blocks(soup, page, prefix, lang)
     if sub == '':

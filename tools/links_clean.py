@@ -11,7 +11,7 @@ function pick(c){for(var i=0;i<c.length;i++){if(P.indexOf(c[i])>-1)return c[i];}
 document.addEventListener('click',function(e){var a=e.target.closest?e.target.closest('localization-form a[data-value]'):null;if(!a)return;e.preventDefault();e.stopPropagation();
 var v=a.getAttribute('data-value');var lang=cfg.cur?cfg.cur.split('-')[0]:'en';var cc=cfg.cur.indexOf('-')>-1?cfg.cur.split('-')[1]:'';
 if(['en','pl','uk','cs','sk','hu','bg'].indexOf(v)>-1){var c=cc?[v+'-'+cc]:[];c.push(v==='en'?'':v);c.push('');nav(pick(c));}
-else{var low=v.toLowerCase();nav(pick([lang+'-'+low,'en-'+low,lang==='en'?'':lang,'']));}},true);})();"""
+else{var low=v.toLowerCase();if(low===(cc||'pl')){nav(cfg.cur);return;}nav(pick([lang+'-'+low,'en-'+low,lang==='en'?'':lang,'']));}},true);})();"""
 
 SKIP = ('http://', 'https://', '//', '#', 'mailto:', 'tel:', 'data:', 'javascript:')
 
