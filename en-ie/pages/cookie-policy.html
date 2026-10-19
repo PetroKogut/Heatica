@@ -850,7 +850,7 @@
 </div>
 <div class="country-selector__overlay"></div>
 </div>
-<input name="country_code" type="hidden" value="DE"/>
+<input name="country_code" type="hidden" value="IE"/>
 </div></form></localization-form>
 <localization-form><form accept-charset="UTF-8" action="/localization" class="localization-form" enctype="multipart/form-data" id="HeaderLanguageMobileForm" method="post"><input name="form_type" type="hidden" value="localization"/><input name="utf8" type="hidden" value="✓"/><input name="_method" type="hidden" value="put"/><input name="return_to" type="hidden" value="/en-ie/pages/cookie-policy"/><div>
 <h2 class="visually-hidden" id="HeaderLanguageMobileLabel">
@@ -1163,6 +1163,6 @@ function pick(c){for(var i=0;i<c.length;i++){if(P.indexOf(c[i])>-1)return c[i];}
 document.addEventListener('click',function(e){var a=e.target.closest?e.target.closest('localization-form a[data-value]'):null;if(!a)return;e.preventDefault();e.stopPropagation();
 var v=a.getAttribute('data-value');var lang=cfg.cur?cfg.cur.split('-')[0]:'en';var cc=cfg.cur.indexOf('-')>-1?cfg.cur.split('-')[1]:'';
 if(['en','pl','uk','cs','sk','hu','bg'].indexOf(v)>-1){var c=cc?[v+'-'+cc]:[];c.push(v==='en'?'':v);c.push('');nav(pick(c));}
-else{var low=v.toLowerCase();nav(pick([lang+'-'+low,'en-'+low,lang==='en'?'':lang,'']));}},true);})();</script>
+else{var low=v.toLowerCase();if(low===(cc||'pl')){nav(cfg.cur);return;}nav(pick([lang+'-'+low,'en-'+low,lang==='en'?'':lang,'']));}},true);})();</script>
 </body>
 </html>
