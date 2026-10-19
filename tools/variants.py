@@ -42,8 +42,18 @@ def product_json(prefix, handle):
     prefix = prefix if prefix in LIVE_LOCALES else ''
     key = (prefix, handle)
     if key not in _cache:
-        _cache[key] = get(f'https://heatica.com/{prefix + "/" if prefix else ""}products/{handle}.js')
-        time.sleep(0.3)
+        saved = ROOT / 'tools' / 'data' / 'products' / f'{handle}.json'   # captured while Shopify was online
+        try:
+            _cache[key] = get(f'https://heatica.com/{prefix + "/" if prefix else ""}products/{handle}.js')
+            time.sleep(0.3)
+            if prefix == '':
+                saved.parent.mkdir(parents=True, exist_ok=True)
+                saved.write_text(json.dumps(_cache[key], ensure_ascii=False, indent=1), encoding='utf-8')
+        except RuntimeError:
+            if not saved.exists():
+                raise
+            print(f'variants: live fetch failed for {handle}, using {saved.relative_to(ROOT)}')
+            _cache[key] = json.loads(saved.read_text(encoding='utf-8'))
     return _cache[key]
 
 def variant_image(media):
