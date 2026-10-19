@@ -94,6 +94,13 @@ def fix_currency_labels(soup):
             node.replace_with(re.sub(r'(PLN|EUR)(\s+)zł', r'EUR\2€', str(node)).replace('PLN', 'EUR')); n += 1
     return n
 
+DEFAULT_COUNTRY = 'PL'   # the shop is in Krakow; the crawl's primary market was Germany
+
+def default_country(soup):
+    """source locales (no country in the URL) present Poland as the selected country."""
+    from clone_locale import select_country
+    select_country(soup, DEFAULT_COUNTRY)
+
 def youtube_privacy(soup):
     n = 0
     for fr in soup.find_all('iframe', src=re.compile(r'youtube\.com/embed')):
@@ -356,6 +363,7 @@ def process(page, cards_cache):
     stats['facets'] = remove_facets(soup)
     stats['atom'] = remove_atom(soup)
     stats['pln'] = fix_currency_labels(soup)
+    default_country(soup)
     stats['yt'] = youtube_privacy(soup)
     stats['footer'] = footer_blocks(soup, page, prefix, lang)
     if sub == '':

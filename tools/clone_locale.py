@@ -97,7 +97,15 @@ def select_lang(soup, lang, native, prev='en', prev_label='English'):
 def first_text(a):
     return next((s.strip() for s in a.find_all(string=True) if s.strip()), None)
 
-def select_country(soup, cc, prev_cc='DE'):
+def current_country(soup):
+    """data-value of the country currently marked as selected in the pickers."""
+    for a in soup.select('localization-form a[data-value][aria-current="true"]'):
+        if not a.get('hreflang'):
+            return a['data-value']
+    return 'DE'   # the crawl's primary market
+
+def select_country(soup, cc, prev_cc=None):
+    prev_cc = prev_cc or current_country(soup)
     src_disp = dst_disp = None
     for a in soup.select(f'localization-form a[data-value="{prev_cc}"]'):
         src_disp = src_disp or first_text(a)

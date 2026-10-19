@@ -30,11 +30,14 @@ npx wrangler deploy            # uploads ~2.1k files, ~0.6 GB (largest file ~5 M
 ```
 
 This publishes the Worker **heatica-static** at
-`https://heatica-static.<account>.workers.dev`. If the Worker is connected to
-GitHub (Workers Builds), every push to `main` runs the same command: build
-command empty, deploy command `npx wrangler deploy`. There is exactly one
-Worker and one environment; the custom domain is attached to this same
-Worker in §4, so the deploy command never changes.
+`https://heatica-static.<account-subdomain>.workers.dev` (the subdomain is
+shown under Workers & Pages → heatica-static → Settings → Domains & Routes).
+The Worker is connected to this GitHub repository through Workers Builds, so
+every push to `main` already runs the same deployment automatically (build
+command empty, deploy command `npx wrangler deploy`); the manual command is
+only needed to deploy a branch by hand. There is exactly one Worker and one
+environment; the custom domain is attached to this same Worker in §4, so
+nothing about the deployment changes at cut-over.
 
 `wrangler.jsonc` sets the compatibility flag `assets_navigation_has_no_effect`.
 Do not remove it: without it Cloudflare answers browser navigations that
